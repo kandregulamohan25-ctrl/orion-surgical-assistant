@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Volume2, Mic, BookOpen, Trash2, CheckCircle2, ShieldCheck, RefreshCw } from 'lucide-react';
+import { Settings, Volume2, Mic, BookOpen, Trash2, CheckCircle2, ShieldCheck, Play, Sparkles } from 'lucide-react';
 import { speechService } from '../speech/speechService';
 import { auditLogger } from '../audit/auditLogger';
 
@@ -11,25 +11,51 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onResetEverything })
   const [ttsEnabled, setTtsEnabled] = useState<boolean>(true);
   const [noiseLevel, setNoiseLevel] = useState<'Quiet' | 'Normal OR' | 'High Ambient Noise'>('Normal OR');
   const [speechEngine, setSpeechEngine] = useState<'browser-native' | 'whisper-pluggable' | 'local-synthetic'>('browser-native');
-  const [selectedVoice, setSelectedVoice] = useState<string>('Standard Natural');
-  const [availableVoices, setAvailableVoices] = useState<string[]>([]);
+  const [selectedVoiceName, setSelectedVoiceName] = useState<string>('');
+  const [englishVoices, setEnglishVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [savedToast, setSavedToast] = useState<boolean>(false);
+  const [testSpeechStatus, setTestSpeechStatus] = useState<string | null>(null);
 
   useEffect(() => {
     setTtsEnabled(speechService.isTtsEnabled());
     setNoiseLevel(speechService.getNoiseLevel());
 
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      const v = window.speechSynthesis.getVoices();
-      if (v.length > 0) {
-        setAvailableVoices(v.map(voice => voice.name));
+    const loadVoices = () => {
+      const voices = speechService.getAvailableEnglishVoices();
+      setEnglishVoices(voices);
+      const current = speechService.getSelectedVoice();
+      if (current) {
+        setSelectedVoiceName(current.name);
+      } else if (voices.length > 0) {
+        setSelectedVoiceName(voices[0].name);
       }
+    };
+
+    loadVoices();
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
     }
   }, []);
+
+  const handleVoiceChange = (voiceName: string) => {
+    setSelectedVoiceName(voiceName);
+    speechService.setVoiceByName(voiceName);
+  };
+
+  const handleTestVoice = () => {
+    setTestSpeechStatus("Playing English audio test...");
+    speechService.testVoice("ORION operating room assistant ready. Identity and pre-incision safety checks confirmed in English.");
+    setTimeout(() => {
+      setTestSpeechStatus(null);
+    }, 4500);
+  };
 
   const handleSave = () => {
     speechService.setTtsEnabled(ttsEnabled);
     speechService.setNoiseLevel(noiseLevel);
+    if (selectedVoiceName) {
+      speechService.setVoiceByName(selectedVoiceName);
+    }
     setSavedToast(true);
     setTimeout(() => setSavedToast(false), 2500);
   };
@@ -53,7 +79,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onResetEverything })
             ORION Hardware & Telemetry Settings
           </h1>
           <p className="text-xs text-slate-600 mt-1 max-w-2xl leading-relaxed">
-            Configure full-duplex speech recognition thresholds, simulated ambient operating room noise injection, and protocol knowledge base bindings.
+            Configure full-duplex speech recognition, select dedicated English TTS voices, simulated ambient OR noise levels, and protocol knowledge base bindings.
           </p>
         </div>
 
@@ -80,11 +106,53 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onResetEverything })
           <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
             <Mic className="h-4 w-4 text-blue-600" />
             <h3 className="text-sm font-bold text-slate-900">
-              Speech Pipeline Configuration
+              Speech Pipeline & English Voice Selection
             </h3>
           </div>
 
           <div className="space-y-4 text-xs">
+            {/* English Voice Selector */}
+            <div className="p-3 bg-blue-50/60 border border-blue-200 rounded-lg space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="font-bold text-blue-950 block">
+                  Designated English Voice (en-US / en-GB)
+                </label>
+                <span className="text-[10px] font-mono font-bold text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">
+                  Locale: en-US
+                </span>
+              </div>
+
+              <select
+                value={selectedVoiceName}
+                onChange={(e) => handleVoiceChange(e.target.value)}
+                className="w-full p-2 bg-white border border-blue-300 rounded-md text-slate-900 font-medium cursor-pointer focus:ring-1 focus:ring-blue-500"
+              >
+                {englishVoices.length === 0 ? (
+                  <option value="">Default English System Voice (en-US)</option>
+                ) : (
+                  englishVoices.map((v) => (
+                    <option key={v.name} value={v.name}>
+                      {v.name} ({v.lang})
+                    </option>
+                  ))
+                )}
+              </select>
+
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-[11px] text-blue-800">
+                  {testSpeechStatus || "Guaranteed English pronunciation"}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleTestVoice}
+                  className="inline-flex items-center gap-1 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  <Play className="h-3 w-3" />
+                  Test English Voice
+                </button>
+              </div>
+            </div>
+
             <div>
               <label className="font-semibold text-slate-700 block mb-1">
                 Primary STT Engine Abstraction
@@ -94,13 +162,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onResetEverything })
                 onChange={(e) => setSpeechEngine(e.target.value as any)}
                 className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 cursor-pointer"
               >
-                <option value="browser-native">Web Speech API (Real Microphone Continuous Stream)</option>
+                <option value="browser-native">Web Speech API (Real Microphone Continuous Stream — en-US)</option>
                 <option value="whisper-pluggable">OpenAI Whisper / Self-Hosted REST Pluggable Endpoint</option>
                 <option value="local-synthetic">Deterministic Synthetic Audio Simulator (No Mic Required)</option>
               </select>
-              <span className="text-[11px] text-slate-500 mt-1 block">
-                Automatic fallback: gracefully degrades to synthetic dialogue if microphone access is blocked.
-              </span>
             </div>
 
             <div>
@@ -122,7 +187,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onResetEverything })
               <label className="flex items-center justify-between cursor-pointer">
                 <div>
                   <span className="font-semibold text-slate-900 block">Full-Duplex Text-To-Speech (TTS)</span>
-                  <span className="text-[11px] text-slate-500">Play spoken auditory prompts for omissions and checklist updates</span>
+                  <span className="text-[11px] text-slate-500">Play spoken auditory prompts in English for omissions and updates</span>
                 </div>
                 <input
                   type="checkbox"

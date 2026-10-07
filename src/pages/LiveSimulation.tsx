@@ -685,14 +685,29 @@ export const LiveSimulation: React.FC<LiveSimulationProps> = ({
           {/* Bottom Audio / TTS Controls */}
           <div className="pt-3 border-t border-slate-100 space-y-2">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-600 font-medium">Text-to-Speech (TTS):</span>
-              <button
-                onClick={toggleTts}
-                className="flex items-center gap-1 text-slate-700 hover:text-slate-900 font-semibold cursor-pointer"
-              >
-                {ttsEnabled ? <Volume2 className="h-4 w-4 text-emerald-600" /> : <VolumeX className="h-4 w-4 text-slate-400" />}
-                <span>{ttsEnabled ? 'Enabled' : 'Muted'}</span>
-              </button>
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-600 font-medium">Spoken Audio:</span>
+                <span className="text-[10px] font-mono font-bold text-blue-700 bg-blue-50 px-1 py-0.2 rounded border border-blue-200">
+                  en-US
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => speechService.testVoice()}
+                  className="text-[11px] text-blue-600 hover:text-blue-800 font-semibold cursor-pointer underline"
+                  title="Test English voice synthesis"
+                >
+                  Test Voice
+                </button>
+                <button
+                  onClick={toggleTts}
+                  className="flex items-center gap-1 text-slate-700 hover:text-slate-900 font-semibold cursor-pointer"
+                >
+                  {ttsEnabled ? <Volume2 className="h-3.5 w-3.5 text-emerald-600" /> : <VolumeX className="h-3.5 w-3.5 text-slate-400" />}
+                  <span>{ttsEnabled ? 'On' : 'Muted'}</span>
+                </button>
+              </div>
             </div>
 
             <div className="flex items-center justify-between text-xs">

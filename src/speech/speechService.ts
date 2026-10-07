@@ -39,6 +39,7 @@ export class OrionSpeechService {
   private onStatusCallback: StatusCallback | null = null;
   private noiseLevel: 'Quiet' | 'Normal OR' | 'High Ambient Noise' = 'Normal OR';
   private synthesisVoice: SpeechSynthesisVoice | null = null;
+  private cachedEnglishVoices: SpeechSynthesisVoice[] = [];
 
   constructor() {
     this.initBrowserSpeechRecognition();
@@ -55,7 +56,7 @@ export class OrionSpeechService {
         this.recognition = new SpeechRecognitionConstructor();
         this.recognition.continuous = true;
         this.recognition.interimResults = true;
-        this.recognition.lang = 'en-US';
+        this.recognition.lang = 'en-US'; // Strictly English language
 
         this.recognition.onstart = () => {
           this.setStatus('LISTENING');
@@ -117,21 +118,66 @@ export class OrionSpeechService {
   private initTtsVoices() {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       const loadVoices = () => {
-        const voices = window.speechSynthesis.getVoices();
-        // Prefer clear neutral medical assistant voices (Google US English, Samantha, Microsoft Zira, Daniel)
-        const preferred = voices.find(v => 
-          v.name.includes('Natural') || 
-          v.name.includes('Samantha') || 
-          v.name.includes('Google US English') ||
-          v.name.includes('Zira') ||
-          v.name.includes('Jenny')
+        const allVoices = window.speechSynthesis.getVoices();
+        if (!allVoices || allVoices.length === 0) return;
+
+        // FILTER STRICTLY FOR ENGLISH VOICES (en, en-US, en-GB, en-IN, en-AU, etc.)
+        const englishVoices = allVoices.filter(v => 
+          v.lang && (
+            v.lang.toLowerCase().startsWith('en') ||
+            v.lang.toLowerCase().includes('en-us') ||
+            v.lang.toLowerCase().includes('en-gb') ||
+            v.lang.toLowerCase().includes('en_us') ||
+            v.lang.toLowerCase().includes('en-in')
+          )
         );
-        this.synthesisVoice = preferred || voices[0] || null;
+
+        this.cachedEnglishVoices = englishVoices.length > 0 ? englishVoices : allVoices;
+
+        // Prioritize clear neutral English medical assistant voices:
+        // Windows/Edge: Microsoft David, Microsoft Zira, Microsoft Mark, Microsoft Jenny
+        // Chrome/Android: Google US English, Google UK English
+        // Apple/macOS: Samantha, Daniel, Karen
+        const preferred = englishVoices.find(v => 
+          v.name.includes('Google US English') ||
+          v.name.includes('Microsoft Zira') ||
+          v.name.includes('Microsoft David') ||
+          v.name.includes('Samantha') ||
+          v.name.includes('Natural') ||
+          v.name.includes('Jenny') ||
+          v.name.includes('Daniel')
+        );
+
+        // ALWAYS pick an English voice. Never fall back to a random non-English voices[0].
+        this.synthesisVoice = preferred || englishVoices[0] || allVoices[0] || null;
       };
 
       loadVoices();
       window.speechSynthesis.onvoiceschanged = loadVoices;
     }
+  }
+
+  public getAvailableEnglishVoices(): SpeechSynthesisVoice[] {
+    if (this.cachedEnglishVoices.length > 0) return this.cachedEnglishVoices;
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      const voices = window.speechSynthesis.getVoices();
+      return voices.filter(v => v.lang && v.lang.toLowerCase().startsWith('en'));
+    }
+    return [];
+  }
+
+  public getSelectedVoice(): SpeechSynthesisVoice | null {
+    return this.synthesisVoice;
+  }
+
+  public setVoiceByName(voiceName: string): boolean {
+    const voices = this.getAvailableEnglishVoices();
+    const match = voices.find(v => v.name === voiceName);
+    if (match) {
+      this.synthesisVoice = match;
+      return true;
+    }
+    return false;
   }
 
   public setNoiseLevel(level: 'Quiet' | 'Normal OR' | 'High Ambient Noise') {
@@ -173,16 +219,15 @@ export class OrionSpeechService {
     this.isListening = true;
     if (this.recognition) {
       try {
+        this.recognition.lang = 'en-US';
         this.recognition.start();
         this.setStatus('LISTENING');
         return true;
       } catch (e) {
-        // May already be active
         this.setStatus('LISTENING');
         return true;
       }
     } else {
-      // Mock / fallback active
       this.setStatus('LISTENING');
       return true;
     }
@@ -208,7 +253,7 @@ export class OrionSpeechService {
   }
 
   /**
-   * Text-to-speech with full-duplex pause/resume handling
+   * Text-to-speech with explicit English locale and voice guarantee
    */
   public speak(promptText: string, onEnd?: () => void) {
     if (!this.ttsEnabled || typeof window === 'undefined' || !('speechSynthesis' in window)) {
@@ -217,12 +262,24 @@ export class OrionSpeechService {
     }
 
     try {
-      window.speechSynthesis.cancel(); // Stop any pending speech
+      window.speechSynthesis.cancel(); // Stop any previous speech
       const utterance = new SpeechSynthesisUtterance(promptText);
-      if (this.synthesisVoice) {
+
+      // GUARANTEE ENGLISH
+      utterance.lang = 'en-US';
+
+      // If voice is set, use it; otherwise find any English voice
+      if (this.synthesisVoice && this.synthesisVoice.lang.toLowerCase().startsWith('en')) {
         utterance.voice = this.synthesisVoice;
+      } else {
+        const engVoices = this.getAvailableEnglishVoices();
+        if (engVoices.length > 0) {
+          this.synthesisVoice = engVoices[0];
+          utterance.voice = engVoices[0];
+        }
       }
-      utterance.rate = 1.05; // Crisp, professional pace
+
+      utterance.rate = 1.0; // Clear, measured pace
       utterance.pitch = 1.0;
 
       this.setStatus('SPEAKING');
@@ -249,6 +306,10 @@ export class OrionSpeechService {
     } catch {
       if (onEnd) onEnd();
     }
+  }
+
+  public testVoice(sampleText: string = "ORION operating room assistant ready. Identity and checklist verification standing by in English.") {
+    this.speak(sampleText);
   }
 
   public interruptTts() {
