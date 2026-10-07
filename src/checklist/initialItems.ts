@@ -1,0 +1,117 @@
+import { ChecklistItem } from '../types';
+import { getProtocolCitation } from '../data/protocols';
+
+export const INITIAL_CHECKLIST_ITEMS: ChecklistItem[] = [
+  {
+    id: 'item-01-identity',
+    code: 'CHK-ID-01',
+    name: 'Patient Identity Verification',
+    description: 'Verify two distinct patient identifiers (Full Legal Name & Simulation ID) matching hospital band.',
+    category: 'IDENTITY',
+    required: true,
+    state: 'NOT_STARTED',
+    completionCriteria: 'Surgeon or Circulating Nurse verbalizes exact name and Simulation ID.',
+    contradictionRules: ['Mismatched name in conversation', 'Discrepancy in Simulation ID digits'],
+    requiresClinicianConfirmation: true,
+    confidenceScore: 0.0,
+    protocolRef: getProtocolCitation('2.2')
+  },
+  {
+    id: 'item-02-procedure',
+    code: 'CHK-PROC-02',
+    name: 'Procedure Confirmation',
+    description: 'Confirm scheduled surgical procedure matches the informed consent and operative booking.',
+    category: 'PROCEDURE_SITE',
+    required: true,
+    state: 'NOT_STARTED',
+    completionCriteria: 'Explicit declaration of planned surgical procedure.',
+    contradictionRules: ['Different surgical procedure stated by operator vs nurse'],
+    requiresClinicianConfirmation: true,
+    confidenceScore: 0.0,
+    protocolRef: getProtocolCitation('2.2')
+  },
+  {
+    id: 'item-03-site',
+    code: 'CHK-SITE-03',
+    name: 'Surgical Site & Laterality',
+    description: 'Confirm anatomical laterality (Left, Right, Midline) and verification of surgical skin marker.',
+    category: 'PROCEDURE_SITE',
+    required: true,
+    state: 'NOT_STARTED',
+    completionCriteria: 'Operating surgeon states anatomical side and confirms visible surgical skin mark.',
+    contradictionRules: ['Opposite laterality spoken (e.g., "Left" vs "Right")', 'Unmarked site mentioned'],
+    requiresClinicianConfirmation: true,
+    confidenceScore: 0.0,
+    protocolRef: getProtocolCitation('2.3')
+  },
+  {
+    id: 'item-04-consent',
+    code: 'CHK-CONS-04',
+    name: 'Operative Consent Verification',
+    description: 'Confirm written, signed informed consent form is present in physical or electronic chart.',
+    category: 'CONSENT',
+    required: true,
+    state: 'NOT_STARTED',
+    completionCriteria: 'Affirmative verbal verification that valid consent form is on file.',
+    contradictionRules: ['Missing consent reported', 'Unsigned consent document declared'],
+    requiresClinicianConfirmation: true,
+    confidenceScore: 0.0,
+    protocolRef: getProtocolCitation('2.4')
+  },
+  {
+    id: 'item-05-allergy',
+    code: 'CHK-ALLERG-05',
+    name: 'Allergy & Hypersensitivity Status',
+    description: 'Review patient known allergies (drugs, latex, antiseptic agents) with anesthesiologist.',
+    category: 'ALLERGY',
+    required: true,
+    state: 'NOT_STARTED',
+    completionCriteria: 'Anesthesiologist states specific known allergies or confirms "No Known Drug Allergies (NKDA)".',
+    contradictionRules: ['Participant states NKDA while another participant declares specific drug allergy (e.g., Penicillin)'],
+    requiresClinicianConfirmation: true,
+    confidenceScore: 0.0,
+    protocolRef: getProtocolCitation('2.5')
+  },
+  {
+    id: 'item-06-antibiotic',
+    code: 'CHK-ABX-06',
+    name: 'Antibiotic Prophylaxis Timing',
+    description: 'Confirm prophylactic antibiotic administration within 60 minutes prior to surgical incision.',
+    category: 'ANTIBIOTIC',
+    required: true,
+    state: 'NOT_STARTED',
+    completionCriteria: 'Affirmation of antibiotic agent and infusion completion time <60 minutes or explicit non-indication.',
+    contradictionRules: ['Infusion completed >60 minutes prior without redose', 'Antibiotic not started yet'],
+    requiresClinicianConfirmation: true,
+    confidenceScore: 0.0,
+    protocolRef: getProtocolCitation('2.6')
+  },
+  {
+    id: 'item-07-imaging',
+    code: 'CHK-IMG-07',
+    name: 'Essential Imaging Display & Orientation',
+    description: 'Verify essential preoperative radiology (MRI/CT/X-ray) displayed on OR monitors with correct orientation.',
+    category: 'IMAGING',
+    required: true,
+    state: 'NOT_STARTED',
+    completionCriteria: 'Surgical team confirms relevant diagnostic images are displayed and verified or not applicable.',
+    contradictionRules: ['Imaging missing for radiographic-dependent procedure', 'Incorrect patient ID on screen'],
+    requiresClinicianConfirmation: true,
+    confidenceScore: 0.0,
+    protocolRef: getProtocolCitation('2.7')
+  },
+  {
+    id: 'item-08-equipment',
+    code: 'CHK-EQUIP-08',
+    name: 'Equipment, Sterility & Critical Concerns',
+    description: 'Scrub tech confirms indicator sterility; surgeon and anesthesia summarize anticipated critical risks.',
+    category: 'EQUIPMENT',
+    required: true,
+    state: 'NOT_STARTED',
+    completionCriteria: 'Sterility confirmed, implant availability checked, airway/blood loss concerns reviewed.',
+    contradictionRules: ['Sterility indicator failed', 'Specialty implant tray missing'],
+    requiresClinicianConfirmation: true,
+    confidenceScore: 0.0,
+    protocolRef: getProtocolCitation('2.8')
+  }
+];
