@@ -97,11 +97,18 @@ export const LiveSimulation: React.FC<LiveSimulationProps> = ({
     });
   }, [onSendUtterance]);
 
-  // Handle scripted auto-play step timer
+  // Speech-aware auto-play scenario runner
+  // Ensures AI finishes speaking completely before the next turn triggers (prevents cutoffs and skipped words)
   useEffect(() => {
-    let timer: any;
+    let timer: any = null;
+    let unsubscribeSpeechEnd: (() => void) | null = null;
+
     if (isAutoPlayingScenario && scriptStepIndex < currentScenario.scriptedTimeline.length) {
       const step = currentScenario.scriptedTimeline[scriptStepIndex];
+      
+      // Initial trigger of the scripted utterance
+      const initialDelay = scriptStepIndex === 0 ? 1200 : 800;
+      
       timer = setTimeout(() => {
         const utterance: DialogueUtterance = {
           id: `utt-auto-${Date.now()}-${scriptStepIndex}`,
@@ -113,13 +120,44 @@ export const LiveSimulation: React.FC<LiveSimulationProps> = ({
           isInterruption: step.isInterruption,
           isLowConfidence: step.confidence < 0.75
         };
+        
         onSendUtterance(utterance);
-        setScriptStepIndex(prev => prev + 1);
-      }, step.delayMs || 2500);
+
+        // Schedule progression to next step
+        // If voice is speaking, wait until it finishes completely + 2200ms natural pause
+        let hasAdvanced = false;
+        const advanceToNext = () => {
+          if (hasAdvanced) return;
+          hasAdvanced = true;
+          if (unsubscribeSpeechEnd) unsubscribeSpeechEnd();
+          setScriptStepIndex(prev => prev + 1);
+        };
+
+        // Fallback timer (in case speech is muted or no response needed)
+        const fallbackWaitMs = Math.max(5000, (step.text.length * 55));
+        const safetyTimer = setTimeout(() => {
+          advanceToNext();
+        }, fallbackWaitMs);
+
+        // Listen for speech finish event
+        unsubscribeSpeechEnd = speechService.onSpeechEnd(() => {
+          clearTimeout(safetyTimer);
+          // Comfortable natural clinical pause after AI finishes speaking
+          setTimeout(() => {
+            advanceToNext();
+          }, 2200);
+        });
+
+      }, initialDelay);
+
     } else if (scriptStepIndex >= currentScenario.scriptedTimeline.length) {
       setIsAutoPlayingScenario(false);
     }
-    return () => clearTimeout(timer);
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      if (unsubscribeSpeechEnd) unsubscribeSpeechEnd();
+    };
   }, [isAutoPlayingScenario, scriptStepIndex, currentScenario, onSendUtterance]);
 
   const toggleMicrophone = () => {
